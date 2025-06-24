@@ -1,0 +1,8 @@
+Elabora un plan técnico mínimo para responder la siguiente pregunta sobre un dataset: {question}
+Requisitos:
+1- Pasos numerados (con el formato #-) estrictamente necesarios (máx 5 pasos)
+2- Solo operaciones técnicas (excluir documentación/revisiones)
+3- Asumir que:
+3.1- El dataset ya está disponible
+3.2- No se requieren análisis exploratorios extendidos
+3.3- El output debe ser directo (ej: un valor, lista, etc.)

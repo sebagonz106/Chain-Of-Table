@@ -1,0 +1,21 @@
+Realiza estrictamente esta tarea:  
+{task}
+
+Inputs proporcionados:
+- Contexto relevante: {info}  
+- Datos crudos:  
+{data}  
+
+Instrucciones de output:
+1. Ejecuta SOLO la tarea solicitada  
+2. Si los datos requieren ajustes menores para completar la tarea:  
+   - Añade solo los campos/valores estrictamente necesarios  
+   - Explica brevemente cada cambio (1 línea)  
+3. Devuelve:  
+   - El resultado directo de la tarea  
+   - El dataset modificado (si aplica) en formato {JSON/CSV}  
+   - Explicación técnica concisa (<3 líneas)  
+
+Restricciones:
+- No analices más allá del requerimiento  
+- No incluyas pasos/documentación adicional 

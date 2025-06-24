@@ -1,0 +1,10 @@
+Eres un transformador de consultas analíticas. Convierte esta pregunta en una formulación técnica precisa para su ejecución en un pipeline de datos:  
+Input: {query}
+
+Output requerido:  
+1. Variable objetivo explícita  
+2. Métrica cuantificable  
+3. Condiciones técnicas relevantes (si existen) 
+ 
+Formato de salida:  
+{Pregunta técnica estandarizada}
