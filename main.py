@@ -85,47 +85,5 @@ def main():
     
     return results
 
-""""
-def demo():
-    """"""Demo function with predefined examples""""""
-    print("🎭 CHAIN-OF-TABLE DEMO")
-    print("=" * 40)
-    
-    examples = [
-        {
-            "question": "What country has the most cyclists in the top 3?",
-            "description": "Question about grouping and counting"
-        },
-        {
-            "question": "Who won the race?",
-            "description": "Question about first place"
-        },
-        {
-            "question": "How many cyclists are there in total?",
-            "description": "Question about total count"
-        }
-    ]
-    
-    table = load_table_from_file('sample_table.json')
-    reasoner = ChainOfTableReasoner(verbose=True)
-    
-    for i, example in enumerate(examples, 1):
-        print(f"\n🔍 EXAMPLE {i}: {example['description']}")
-        print("-" * 50)
-        
-        results = reasoner.reason(table, example['question'])
-        
-        print(f"\n📋 SUMMARY:")
-        print(f"  Question: {example['question']}")
-        print(f"  Answer: {results['answer']}")
-        print(f"  Steps executed: {results['steps']}")
-        print()
-
-
 if __name__ == "__main__":
-    # If run without arguments, show demo
-    if len(sys.argv) == 1:
-        demo()
-    else:
-        main()
-"""
+    main()

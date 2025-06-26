@@ -42,11 +42,13 @@ ARGUMENT EXAMPLES BY OPERATION:
 EXAMPLE f_add_column:
 Operation: f_add_column
 Table: Rank | Cyclist
-       1    | Alej. (ESP)
+       1    | Alejandro (ESP)
        2    | Davide (ITA)
+       3    | Paolo (ITA)
+       4    | Haimar (ESP)
 Question: Which country had the most cyclists?
-→ I need to extract countries from cyclist names
-ARGUMENTS: Country
+→ I need to extract countries from cyclist names and create a Country column
+ARGUMENTS: ["Country", ["ESP", "ITA", "ITA", "ESP"]]
 
 EXAMPLE f_select_row:
 Operation: f_select_row
@@ -90,12 +92,15 @@ ARGUMENTS: ["Count", false]
 INSTRUCTIONS:
 1. Analyze the current table and question.
 2. Consider what arguments the operation "{operation}" needs to advance toward the answer.
-3. For f_add_column: specify the name of the new column.
-4. For f_select_row: specify row indices (1-indexed).
-5. For f_select_column: specify column names.
-6. For f_group_by: specify the column to group by.
-7. For f_sort_by: specify the column and whether ascending (true) or descending (false).
-8. Respond ONLY with arguments in the appropriate format.
+3. For f_add_column, you MUST provide both the column name AND the actual values for each row in the table.
+4. Output format by operation:
+   - f_add_column: [column_name, [values_for_each_row]] (e.g., ["Country", ["ESP", "ITA", "FRA"]])
+   - f_select_row: List of row numbers (e.g., [1, 2, 3])  
+   - f_select_column: List of column names (e.g., ["Name", "Country"])
+   - f_group_by: Just the column name (e.g., Country)
+   - f_sort_by: [column_name, ascending] (e.g., ["Count", false])
+5. For f_add_column: Extract/generate the exact value for each row in the current table.
+6. IMPORTANT: Respond with ONLY the arguments for {operation}, no explanation, no examples for other operations.
 
 What are the appropriate arguments for {operation}?
 ARGUMENTS:"""
@@ -105,7 +110,7 @@ ARGUMENTS:"""
 
 def parse_args_response(response: str, operation: str) -> Union[str, List, int]:
     """
-    Parse LLM response to extract arguments.
+    Parse LLM response to extract arguments for the specific operation.
     
     Args:
         response: Complete LLM response
@@ -117,68 +122,156 @@ def parse_args_response(response: str, operation: str) -> Union[str, List, int]:
     # Clean the response
     response = response.strip()
     
-    # Look for lines containing "ARGUMENTS:"
+    # Look for the specific operation in the response
     lines = response.split('\n')
+    args_str = ""
+    
+    # Method 1: Look for "ARGUMENTS:" pattern
     for line in lines:
         if 'ARGUMENTS:' in line:
             args_str = line.split('ARGUMENTS:')[-1].strip()
             break
-    else:
-        # If expected format not found, use last line
-        args_str = response.split('\n')[-1].strip()
+    
+    # Method 2: Look for the specific operation pattern (e.g., "- f_add_column: ...")
+    if not args_str:
+        operation_pattern = f"- {operation}:"
+        for line in lines:
+            if operation_pattern in line:
+                args_str = line.split(operation_pattern)[-1].strip()
+                break
+    
+    # Method 3: Look for just the operation name followed by colon
+    if not args_str:
+        operation_pattern = f"{operation}:"
+        for line in lines:
+            if operation_pattern in line:
+                args_str = line.split(operation_pattern)[-1].strip()
+                break
+    
+    # Method 4: If the response is just the arguments (single line)
+    if not args_str and len(lines) == 1:
+        args_str = lines[0].strip()
+    
+    # Method 5: Look for the last line that looks like arguments
+    if not args_str:
+        for line in reversed(lines):
+            line = line.strip()
+            if line and (line.startswith('[') or line.startswith('"') or line.replace('"', '').replace("'", '').replace('[', '').replace(']', '').replace(',', '').replace(' ', '').isalnum()):
+                args_str = line
+                break
+    
+    if not args_str:
+        raise ValueError(f"Could not extract arguments for {operation} from LLM response: {response}")
     
     # Parse according to operation type
     try:
         if operation == "f_add_column":
-            # Expect a string
-            return args_str.strip('"\'')
+            # Expect [column_name, [values]] format
+            import json
+            import re
+            
+            # Try to parse as JSON first
+            try:
+                parsed = json.loads(args_str)
+                if isinstance(parsed, list) and len(parsed) >= 2:
+                    column_name = parsed[0]
+                    values = parsed[1] if isinstance(parsed[1], list) else [parsed[1]]
+                    return [column_name, values]
+                elif isinstance(parsed, list) and len(parsed) == 1:
+                    # Only column name provided - this is an error for f_add_column
+                    column_name = parsed[0]
+                    raise ValueError(f"f_add_column requires both column name AND values. Only got column name: {column_name}")
+                else:
+                    column_name = str(parsed)
+                    raise ValueError(f"f_add_column requires both column name AND values. Only got: {column_name}")
+            except json.JSONDecodeError:
+                # If not valid JSON, try to extract manually
+                # Look for pattern: ["ColumnName", ["val1", "val2", ...]]
+                if '[' in args_str and ',' in args_str:
+                    # Try to extract the two parts
+                    parts = args_str.strip('[]').split(',', 1)
+                    if len(parts) >= 2:
+                        column_name = parts[0].strip().strip('"\'')
+                        values_part = parts[1].strip()
+                        
+                        # Parse the values part
+                        if values_part.startswith('[') and values_part.endswith(']'):
+                            values_str = values_part.strip('[]')
+                            values = [v.strip().strip('"\'') for v in values_str.split(',')]
+                            return [column_name, values]
+                        else:
+                            # Single value
+                            value = values_part.strip().strip('"\'')
+                            return [column_name, [value]]
+                    else:
+                        raise ValueError(f"f_add_column requires both column name AND values. Got: {args_str}")
+                else:
+                    # Only column name provided
+                    column_name = args_str.strip('"\'[]{}')
+                    raise ValueError(f"f_add_column requires both column name AND values for each row. Only got column name: {column_name}")
         
         elif operation == "f_select_row":
-            # Expect a list of integers or an integer
-            if '[' in args_str and ']' in args_str:
-                # It's a list
-                args_str = args_str.strip('[]')
-                return [int(x.strip()) for x in args_str.split(',') if x.strip().isdigit()]
+            # Expect a list of integers
+            import re
+            numbers = re.findall(r'\d+', args_str)
+            if numbers:
+                return [int(n) for n in numbers]
             else:
-                # It's an integer
-                return int(args_str) if args_str.isdigit() else [1, 2, 3]
+                return [1, 2, 3]  # fallback
         
         elif operation == "f_select_column":
-            # Expect a list of strings or a string
-            if '[' in args_str and ']' in args_str:
-                # It's a list
-                args_str = args_str.strip('[]')
-                return [x.strip().strip('"\'') for x in args_str.split(',')]
-            else:
-                # It's a string
-                return args_str.strip('"\'')
+            # Expect a list of strings or a single string
+            import json
+            try:
+                parsed = json.loads(args_str)
+                if isinstance(parsed, list):
+                    return parsed
+                else:
+                    return [str(parsed)]
+            except json.JSONDecodeError:
+                # Manual parsing
+                import re
+                if '[' in args_str:
+                    columns = re.findall(r'["\']([^"\']+)["\']', args_str)
+                    return columns if columns else ["Column1"]
+                else:
+                    column = args_str.strip('"\'[]{}')
+                    return [column] if column else ["Column1"]
         
         elif operation == "f_group_by":
-            # Expect a string
-            return args_str.strip('"\'')
+            # Expect a single column name
+            args_str = args_str.strip('"\'[]{}')
+            return args_str if args_str else "Column1"
         
         elif operation == "f_sort_by":
-            # Expect a list [column, ascending] or just column
-            if '[' in args_str and ']' in args_str:
-                # It's a list
-                args_str = args_str.strip('[]')
-                parts = [x.strip().strip('"\'') for x in args_str.split(',')]
-                if len(parts) >= 2:
-                    column = parts[0]
-                    ascending = parts[1].lower() in ['true', 'ascending', 'asc']
+            # Expect [column, ascending] or just column
+            import json
+            try:
+                parsed = json.loads(args_str)
+                if isinstance(parsed, list) and len(parsed) >= 2:
+                    return [parsed[0], parsed[1]]
+                elif isinstance(parsed, list) and len(parsed) == 1:
+                    return [parsed[0], True]
+                else:
+                    return [str(parsed), True]
+            except json.JSONDecodeError:
+                # Manual parsing
+                import re
+                column_match = re.search(r'["\']?(\w+)["\']?', args_str)
+                if column_match:
+                    column = column_match.group(1)
+                    ascending = not any(word in args_str.lower() for word in ['desc', 'descending', 'false'])
                     return [column, ascending]
                 else:
-                    return parts[0]
-            else:
-                # It's just the column
-                return args_str.strip('"\'')
+                    return ["Column1", True]
         
         else:
-            return args_str
+            # Generic cleanup
+            return args_str.strip('"\'[]{}')
     
-    except Exception:
-        # If parsing error, raise exception - no fallback
-        raise ValueError(f"Failed to parse LLM response for operation {operation}: {response}")
+    except Exception as e:
+        # If parsing error, raise exception with details
+        raise ValueError(f"Failed to parse arguments for {operation}. Response: {response}. Error: {e}")
 
 
 
