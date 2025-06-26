@@ -9,6 +9,7 @@ import os
 # Add parent directory to path to import utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.table_ops import format_table_as_pipe, get_available_operations
+from request.request import ask_llm
 
 
 def create_dynamic_plan_prompt(table: List[Dict], question: str, chain: List[Union[str, tuple]]) -> str:
@@ -55,6 +56,7 @@ Table: Rank | Cyclist
        1    | Alej. (ESP)
        2    | Davide (ITA)
        3    | Paolo (ITA)
+       4    | Haimar  | ESP
 Question: Which country had the most cyclists in the top 3?
 History: [B]
 → I need to extract countries from cyclist names.
@@ -227,7 +229,7 @@ def dynamic_plan_simple(table: List[Dict], question: str, chain: List[Union[str,
 
 
 def dynamic_plan(table: List[Dict], question: str, chain: List[Union[str, tuple]], 
-                use_llm: bool = False, llm_function=None) -> str:
+                use_llm: bool = False, llm_function=ask_llm) -> str:
     """
     Main function to select the next operation.
     
