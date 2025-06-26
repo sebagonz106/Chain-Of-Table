@@ -173,25 +173,25 @@ def dynamic_plan(table: List[Dict], question: str, chain: List[Union[str, tuple]
         table: Current table
         question: Question to answer
         chain: Operation history
-        use_llm: Whether to use a real LLM or simplified version
+        use_llm: Whether to use a real LLM (always True now)
         llm_function: LLM function to generate responses
     
     Returns:
         Name of next operation
     """
-    if use_llm and llm_function:
-        # Use real LLM
-        prompt = create_dynamic_plan_prompt(table, question, chain)
-        response = llm_function(prompt)
-        return parse_operation_response(response)
-    else:
-        # Use simplified version
-        return dynamic_plan_simple(table, question, chain)
+    if not llm_function:
+        raise ValueError("LLM function is required. No fallback methods available.")
+    
+    # Always use LLM - no simplified version
+    prompt = create_dynamic_plan_prompt(table, question, chain)
+    response = llm_function(prompt)
+    return parse_operation_response(response)
 
 
 # Function for compatibility with existing code
 def get_next_operation(table: List[Dict], question: str, chain: List[Union[str, tuple]]) -> str:
     """
-    Convenience function to get the next operation.
+    Convenience function to get the next operation using LLM.
     """
-    return dynamic_plan(table, question, chain, use_llm=False)
+    from request.request import ask_llm
+    return dynamic_plan(table, question, chain, use_llm=True, llm_function=ask_llm)

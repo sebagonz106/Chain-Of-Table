@@ -118,127 +118,6 @@ def parse_query_response(response: str) -> str:
     return response.split('\n')[-1].strip()
 
 
-def query_simple(table: List[Dict], question: str) -> str:
-    """
-    Simplified version of query for testing without LLM.
-    Implements basic question answering logic.
-    
-    Args:
-        table: Final table
-        question: Question to answer
-    
-    Returns:
-        Answer to the question
-    """
-    if not table:
-        return "Cannot be determined - empty table"
-    
-    question_lower = question.lower()
-    columns = list(table[0].keys()) if table else []
-    
-    # Look for questions about "most" or "highest"
-    if any(word in question_lower for word in ['most', 'mayor', 'más', 'largest', 'highest']):
-        # Look for count or numeric column
-        count_cols = [col for col in columns if 'count' in col.lower() or 'total' in col.lower()]
-        if count_cols:
-            # Find row with highest value in count column
-            try:
-                max_row = max(table, key=lambda row: float(row.get(count_cols[0], 0) or 0))
-                # Return value from first column (usually the identifier)
-                first_col = columns[0]
-                result = str(max_row.get(first_col, "Unknown"))
-                
-                # Convert country codes to full names
-                country_names = {
-                    'ESP': 'Spain',
-                    'ITA': 'Italy', 
-                    'FRA': 'France',
-                    'GER': 'Germany',
-                    'USA': 'United States'
-                }
-                return country_names.get(result, result)
-            except (ValueError, TypeError):
-                # If can't convert to float, return first value
-                first_col = columns[0]
-                result = str(table[0].get(first_col, "Unknown"))
-                country_names = {
-                    'ESP': 'Spain',
-                    'ITA': 'Italy', 
-                    'FRA': 'France',
-                    'GER': 'Germany',
-                    'USA': 'United States'
-                }
-                return country_names.get(result, result)
-    
-    # Look for questions about "least" or "lowest"
-    if any(word in question_lower for word in ['least', 'menor', 'smallest', 'lowest']):
-        count_cols = [col for col in columns if 'count' in col.lower() or 'total' in col.lower()]
-        if count_cols:
-            try:
-                min_row = min(table, key=lambda row: float(row.get(count_cols[0], 0) or 0))
-                first_col = columns[0]
-                result = str(min_row.get(first_col, "Unknown"))
-                country_names = {
-                    'ESP': 'Spain',
-                    'ITA': 'Italy', 
-                    'FRA': 'France',
-                    'GER': 'Germany',
-                    'USA': 'United States'
-                }
-                return country_names.get(result, result)
-            except (ValueError, TypeError):
-                first_col = columns[0]
-                result = str(table[-1].get(first_col, "Unknown"))
-                country_names = {
-                    'ESP': 'Spain',
-                    'ITA': 'Italy', 
-                    'FRA': 'France',
-                    'GER': 'Germany',
-                    'USA': 'United States'
-                }
-                return country_names.get(result, result)
-    
-    # Look for questions about "how many"
-    if 'how many' in question_lower or 'cuántos' in question_lower:
-        # If there's a Count column, sum all values
-        if 'Count' in columns:
-            try:
-                total = sum(float(row.get('Count', 0) or 0) for row in table)
-                return str(int(total))
-            except (ValueError, TypeError):
-                return str(len(table))
-        else:
-            # Return number of rows
-            return str(len(table))
-    
-    # Look for questions about specific countries
-    countries = ['spain', 'italy', 'france', 'germany', 'england', 'usa', 'esp', 'ita', 'fra']
-    for country in countries:
-        if country in question_lower:
-            # Look for rows containing that country
-            matching_rows = [row for row in table if 
-                           any(country.upper() in str(val).upper() for val in row.values())]
-            if matching_rows and 'Count' in columns:
-                return str(matching_rows[0].get('Count', 0))
-    
-    # Default answer: return first value from first row
-    if table and columns:
-        first_value = table[0].get(columns[0], "Unknown")
-        result = str(first_value)
-        
-        # Convert country codes to full names
-        country_names = {
-            'ESP': 'Spain',
-            'ITA': 'Italy', 
-            'FRA': 'France',
-            'GER': 'Germany',
-            'USA': 'United States'
-        }
-        return country_names.get(result, result)
-    
-    return "Cannot be determined"
-
-
 def analyze_table_for_answer(table: List[Dict], question: str) -> Dict[str, Any]:
     """
     Analyze table to get useful information for answering the question.
@@ -288,32 +167,32 @@ def analyze_table_for_answer(table: List[Dict], question: str) -> Dict[str, Any]
     return analysis
 
 
-def query(table: List[Dict], question: str, use_llm: bool = False, llm_function=None) -> str:
+def query(table: List[Dict], question: str, use_llm: bool = True, llm_function=None) -> str:
     """
-    Main function to generate the final answer.
+    Main function to generate the final answer using LLM.
     
     Args:
         table: Final transformed table
         question: Original question to answer
-        use_llm: Whether to use real LLM or simplified version
+        use_llm: Whether to use real LLM (always True now)
         llm_function: LLM function to generate responses
     
     Returns:
         Answer to the question
     """
-    if use_llm and llm_function:
-        # Use real LLM
-        prompt = create_query_prompt(table, question)
-        response = llm_function(prompt)
-        return parse_query_response(response)
-    else:
-        # Use simplified version
-        return query_simple(table, question)
+    if not llm_function:
+        raise ValueError("LLM function is required. No fallback methods available.")
+    
+    # Always use LLM - no simplified version
+    prompt = create_query_prompt(table, question)
+    response = llm_function(prompt)
+    return parse_query_response(response)
 
 
 # Function for compatibility with existing code
 def get_final_answer(table: List[Dict], question: str) -> str:
     """
-    Convenience function to get the final answer.
+    Convenience function to get the final answer using LLM.
     """
-    return query(table, question, use_llm=False)
+    from request.request import ask_llm
+    return query(table, question, use_llm=True, llm_function=ask_llm)
