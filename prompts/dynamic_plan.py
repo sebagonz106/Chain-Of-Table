@@ -164,72 +164,8 @@ def parse_operation_response(response: str) -> str:
     return response.split('\n')[-1].strip()
 
 
-def dynamic_plan_simple(table: List[Dict], question: str, chain: List[Union[str, tuple]]) -> str:
-    """
-    Simplified version of dynamic_plan for testing without LLM.
-    Implements basic operation selection logic.
-    
-    Args:
-        table: Current table
-        question: Question to answer
-        chain: Operation history
-    
-    Returns:
-        Name of next operation
-    """
-    # If no table, finish
-    if not table:
-        return "[E]"
-    
-    # Get only operations (without arguments) from history
-    operations_applied = []
-    for item in chain:
-        if isinstance(item, tuple):
-            operations_applied.append(item[0])
-        elif isinstance(item, str) and item not in ['[B]', '[E]']:
-            operations_applied.append(item)
-    
-    # Simple logic based on common pattern
-    if not operations_applied:
-        # First operation: usually add missing information
-        columns = list(table[0].keys()) if table else []
-        if 'Country' not in columns and any('(' in str(row.get('Cyclist', '')) for row in table):
-            return "f_add_column"
-        elif len(table) > 5:
-            return "f_select_row"
-        else:
-            return "f_group_by"
-    
-    elif 'f_add_column' in operations_applied and 'f_select_row' not in operations_applied:
-        # If we added column but didn't select rows, probably need to filter
-        if len(table) > 3:
-            return "f_select_row"
-        else:
-            return "f_group_by"
-    
-    elif 'f_select_row' in operations_applied and 'f_group_by' not in operations_applied:
-        # If we selected rows, probably need to group
-        columns = list(table[0].keys()) if table else []
-        if 'Country' in columns or 'City' in columns or any('Category' in col for col in columns):
-            return "f_group_by"
-        else:
-            return "[E]"
-    
-    elif 'f_group_by' in operations_applied and 'f_sort_by' not in operations_applied:
-        # If we grouped, might need to sort
-        columns = list(table[0].keys()) if table else []
-        if 'Count' in columns:
-            return "f_sort_by"
-        else:
-            return "[E]"
-    
-    else:
-        # Default: finish
-        return "[E]"
-
-
 def dynamic_plan(table: List[Dict], question: str, chain: List[Union[str, tuple]], 
-                use_llm: bool = False, llm_function=ask_llm) -> str:
+                use_llm: bool = True, llm_function=ask_llm) -> str:
     """
     Main function to select the next operation.
     
