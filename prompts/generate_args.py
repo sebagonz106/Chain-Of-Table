@@ -95,8 +95,8 @@ Table: Country | Count
        ESP     | 2
        ITA     | 3
 Question: Which country had the most cyclists?
-→ I need to sort by count descending to see the highest
-ARGUMENTS: ["Count", false]
+→ I need to sort by count descending (which is indicated by the boolean False) to see the highest
+ARGUMENTS: ["Count", False]
 
 INSTRUCTIONS:
 1. Look at the CURRENT COLUMNS to see what columns already exist in the table.
@@ -292,11 +292,87 @@ def _parse_operation_args(args_str: str, operation: str) -> Union[str, List, int
         raise ValueError(f"Failed to parse arguments for {operation}. Args string: {args_str}. Error: {e}")
 
 
+def validate_args_against_table(table: List[Dict], operation: str, args: Union[str, List, int]) -> Dict[str, Any]:
+    """
+    Validate generated arguments against the current table state.
+    
+    Args:
+        table: Current table
+        operation: Operation to validate
+        args: Generated arguments
+    
+    Returns:
+        Dictionary with validation results: {'valid': bool, 'error': str, 'suggestion': str}
+    """
+    if not table:
+        return {'valid': True, 'error': '', 'suggestion': ''}
+    
+    current_columns = list(table[0].keys())
+    
+    # Validate operations that require existing columns
+    if operation in ['f_select_column', 'f_group_by', 'f_sort_by']:
+        if operation == 'f_select_column':
+            # Args should be a list of column names
+            if isinstance(args, list):
+                missing_columns = [col for col in args if col not in current_columns]
+                if missing_columns:
+                    return {
+                        'valid': False,
+                        'error': f"Columns {missing_columns} do not exist in table. Current columns: {current_columns}",
+                        'suggestion': f"Use f_add_column to create missing columns first, or select from existing columns: {current_columns}"
+                    }
+        
+        elif operation == 'f_group_by':
+            # Args should be a column name (string)
+            if isinstance(args, str):
+                if args not in current_columns:
+                    return {
+                        'valid': False,
+                        'error': f"Column '{args}' does not exist in table. Current columns: {current_columns}",
+                        'suggestion': f"Use f_add_column to create '{args}' column first, or group by existing column: {current_columns}"
+                    }
+        
+        elif operation == 'f_sort_by':
+            # Args should be [column_name, ascending] or just column_name
+            column_to_sort = args[0] if isinstance(args, list) else args
+            if isinstance(column_to_sort, str) and column_to_sort not in current_columns:
+                return {
+                    'valid': False,
+                    'error': f"Column '{column_to_sort}' does not exist in table. Current columns: {current_columns}",
+                    'suggestion': f"Use f_add_column to create '{column_to_sort}' column first, or sort by existing column: {current_columns}"
+                }
+    
+    # Validate f_add_column for duplicate columns
+    elif operation == 'f_add_column':
+        if isinstance(args, list) and len(args) >= 1:
+            proposed_column = args[0]
+            if proposed_column in current_columns:
+                return {
+                    'valid': False,
+                    'error': f"Column '{proposed_column}' already exists in table. Current columns: {current_columns}",
+                    'suggestion': f"Choose a different column name or use existing column '{proposed_column}' directly"
+                }
+    
+    # Validate f_select_row for valid row indices
+    elif operation == 'f_select_row':
+        if isinstance(args, list):
+            max_row = len(table)
+            invalid_indices = [idx for idx in args if isinstance(idx, int) and (idx < 1 or idx > max_row)]
+            if invalid_indices:
+                return {
+                    'valid': False,
+                    'error': f"Row indices {invalid_indices} are out of range. Table has {max_row} rows (1-{max_row})",
+                    'suggestion': f"Use row indices between 1 and {max_row}"
+                }
+    
+    return {'valid': True, 'error': '', 'suggestion': ''}
+
+
 
 def generate_args(table: List[Dict], question: str, operation: str, 
                  use_llm: bool = True, llm_function=None) -> Union[str, List, int]:
     """
-    Main function to generate operation arguments using LLM.
+    Main function to generate operation arguments using LLM with validation.
     
     Args:
         table: Current table
@@ -307,19 +383,33 @@ def generate_args(table: List[Dict], question: str, operation: str,
     
     Returns:
         Appropriate arguments for the operation
+    
+    Raises:
+        ValueError: If arguments are invalid and cannot be corrected
     """
     if not llm_function:
         raise ValueError("LLM function is required. No fallback methods available.")
-    
-    # Check for f_add_column with existing columns
-    if operation == "f_add_column" and table:
-        current_columns = list(table[0].keys())
-        # We'll validate after getting the response from LLM
     
     # Always use LLM - no simplified version
     prompt = create_generate_args_prompt(table, question, operation)
     response = llm_function(prompt)
     args = parse_args_response(response, operation)
+    
+    # Validate arguments against current table state
+    validation = validate_args_against_table(table, operation, args)
+    
+    if not validation['valid']:
+        
+        # For critical validation failures, raise an exception
+        if operation in ['f_select_column', 'f_group_by', 'f_sort_by']:
+            # These operations require existing columns - if columns don't exist, it's a critical error
+            raise ValueError(f"Invalid arguments for {operation}: {validation['error']}. {validation['suggestion']}")
+        elif operation == 'f_add_column' and 'already exists' in validation['error']:
+            # Trying to add a column that already exists is also critical
+            raise ValueError(f"Invalid arguments for {operation}: {validation['error']}. {validation['suggestion']}")
+        elif operation == 'f_select_row' and 'out of range' in validation['error']:
+            # Invalid row indices
+            raise ValueError(f"Invalid arguments for {operation}: {validation['error']}. {validation['suggestion']}")
     
     return args
 

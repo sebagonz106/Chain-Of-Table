@@ -107,6 +107,14 @@ The prompts include explicit rules to prevent common errors:
 - Prevents unnecessary additional operations
 - Maintains operation chain integrity
 
+### Enhanced Args Validation
+- **Post-Generation Validation**: Validates all generated arguments against current table state
+- **Column Existence Checks**: Ensures operations only reference existing columns
+- **Duplicate Column Prevention**: Prevents creating columns that already exist
+- **Row Index Validation**: Validates row indices are within valid range (1-based indexing)
+- **Smart Error Messages**: Provides clear error messages and helpful suggestions
+- **Automatic Recovery**: Excludes operations with invalid arguments and retries with different operations
+
 ## 🔧 Implemented Atomic Operations
 
 ### 1. `f_add_column(table, column_name, values=None, default_value="")`
@@ -371,5 +379,13 @@ results = reasoner.reason(table, question, use_llm=True, llm_function=your_llm)
 - **Answer Detection**: System stops automatically when answer is available
 - **Operation Exclusion**: Problematic operations are excluded and system retries intelligently
 - **Critical Rules**: Added explicit rules in prompts to prevent common LLM errors
+- **Enhanced Args Validation**: Added comprehensive argument validation after generation to prevent operations on non-existent columns, duplicate columns, and invalid row indices
+
+### ⚠️ **Validation Features:**
+- **Column Existence**: Validates that operations like `f_group_by`, `f_sort_by`, `f_select_column` only use existing columns
+- **Duplicate Prevention**: Prevents `f_add_column` from creating columns that already exist
+- **Row Range Validation**: Ensures `f_select_row` only uses valid row indices (1-based)
+- **Smart Error Messages**: Provides helpful suggestions when validation fails
+- **Graceful Retry**: Automatically excludes operations with invalid arguments and retries
 
 🎯 **Ready for production use** in tabular reasoning projects with real LLMs!

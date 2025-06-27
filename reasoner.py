@@ -85,11 +85,22 @@ class ChainOfTableReasoner:
                         print("✅ End of operation chain")
                     break
                 
-                # 2. GenerateArgs: Generate arguments
-                args = get_operation_args(current_table, question, operation)
-                
-                if self.verbose:
-                    print(f"📋 Arguments: {args}")
+                # 2. GenerateArgs: Generate arguments with validation
+                try:
+                    args = get_operation_args(current_table, question, operation)
+                    
+                    if self.verbose:
+                        print(f"📋 Arguments: {args}")
+                except ValueError as e:
+                    # Args validation failed - exclude this operation and retry
+                    get_op = True
+                    excluded_ops.append(operation)
+
+                    if self.verbose:
+                        print(f"⚠️  Conflict detected: {e}")
+                        print("🔄 Retrying with different operation...\n")
+
+                    continue
 
                 # 3. Smart validation: Check for conflicts and repetitions
                 get_op = False
@@ -121,7 +132,7 @@ class ChainOfTableReasoner:
                 if not get_op and current_table and len(current_table) > 0:
                     columns = list(current_table[0].keys())
                     # If we have Count column or question is about "most", we might have the answer
-                    if "Count" in columns and ("most" in question.lower() or "highest" in question.lower() or "lowest" in question.lower() or "least" in question.lower()) and operation != "f_sort_by":
+                    if "Count" in columns and ("most" in question.lower() or "highest" in question.lower() or "lowest" in question.lower() or "least" in question.lower()) and (operation != "f_sort_by" or len([step for step in chain if "f_sort_by" in step])>0):
                         # Check if the table is in a format that can answer the question
                         count_values = [row.get("Count", 0) for row in current_table if "Count" in row]
                         if count_values and len(set(count_values)) > 1:  # Different counts exist

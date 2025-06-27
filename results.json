@@ -1,14 +1,22 @@
 [
   {
     "metadata": {
-      "timestamp": "2025-06-27T14:33:03.268058",
+      "timestamp": "2025-06-27T15:33:23.593870",
       "version": "1.0",
       "algorithm": "Chain-of-Table"
     },
-    "answer": "Both Spain (ESP) and Italy (ITA) have the highest count (3).",
-    "steps": 2,
+    "answer": "Since ITA has a higher count (2) than ESP (1), Italy is the country with the most cyclists in the top 3.",
+    "steps": 6,
     "chain": [
       "[B]",
+      {
+        "operation": "f_select_row",
+        "arguments": [
+          1,
+          2,
+          3
+        ]
+      },
       {
         "operation": "f_add_column",
         "arguments": [
@@ -16,17 +24,34 @@
           [
             "ESP",
             "ITA",
-            "ITA",
-            "ESP",
-            "ESP",
-            "ITA",
-            "ESP"
+            "ITA"
           ]
         ]
       },
       {
-        "operation": "[E]",
-        "arguments": "f_sort_by: [\"Count\", false"
+        "operation": "f_select_column",
+        "arguments": [
+          "Cyclist",
+          "Country"
+        ]
+      },
+      {
+        "operation": "f_group_by",
+        "arguments": "Country"
+      },
+      {
+        "operation": "f_sort_by",
+        "arguments": [
+          "Count",
+          false
+        ]
+      },
+      {
+        "operation": "f_sort_by",
+        "arguments": [
+          "Count",
+          true
+        ]
       },
       "[E]"
     ],
@@ -64,38 +89,15 @@
       [
         {
           "Rank": 1,
-          "Cyclist": "Alejandro (ESP)",
-          "Country": "ESP"
+          "Cyclist": "Alejandro (ESP)"
         },
         {
           "Rank": 2,
-          "Cyclist": "Davide (ITA)",
-          "Country": "ITA"
+          "Cyclist": "Davide (ITA)"
         },
         {
           "Rank": 3,
-          "Cyclist": "Paolo (ITA)",
-          "Country": "ITA"
-        },
-        {
-          "Rank": 4,
-          "Cyclist": "Haimar (ESP)",
-          "Country": "ESP"
-        },
-        {
-          "Rank": 5,
-          "Cyclist": "Javier (ESP)",
-          "Country": "ESP"
-        },
-        {
-          "Rank": 6,
-          "Cyclist": "Franco (ITA)",
-          "Country": "ITA"
-        },
-        {
-          "Rank": 7,
-          "Cyclist": "Juan (ESP)",
-          "Country": "ESP"
+          "Cyclist": "Paolo (ITA)"
         }
       ],
       [
@@ -113,64 +115,61 @@
           "Rank": 3,
           "Cyclist": "Paolo (ITA)",
           "Country": "ITA"
-        },
+        }
+      ],
+      [
         {
-          "Rank": 4,
-          "Cyclist": "Haimar (ESP)",
+          "Cyclist": "Alejandro (ESP)",
           "Country": "ESP"
         },
         {
-          "Rank": 5,
-          "Cyclist": "Javier (ESP)",
-          "Country": "ESP"
-        },
-        {
-          "Rank": 6,
-          "Cyclist": "Franco (ITA)",
+          "Cyclist": "Davide (ITA)",
           "Country": "ITA"
         },
         {
-          "Rank": 7,
-          "Cyclist": "Juan (ESP)",
-          "Country": "ESP"
+          "Cyclist": "Paolo (ITA)",
+          "Country": "ITA"
+        }
+      ],
+      [
+        {
+          "Country": "ESP",
+          "Count": 1
+        },
+        {
+          "Country": "ITA",
+          "Count": 2
+        }
+      ],
+      [
+        {
+          "Country": "ITA",
+          "Count": 2
+        },
+        {
+          "Country": "ESP",
+          "Count": 1
+        }
+      ],
+      [
+        {
+          "Country": "ESP",
+          "Count": 1
+        },
+        {
+          "Country": "ITA",
+          "Count": 2
         }
       ]
     ],
     "final_table": [
       {
-        "Rank": 1,
-        "Cyclist": "Alejandro (ESP)",
-        "Country": "ESP"
+        "Country": "ESP",
+        "Count": 1
       },
       {
-        "Rank": 2,
-        "Cyclist": "Davide (ITA)",
-        "Country": "ITA"
-      },
-      {
-        "Rank": 3,
-        "Cyclist": "Paolo (ITA)",
-        "Country": "ITA"
-      },
-      {
-        "Rank": 4,
-        "Cyclist": "Haimar (ESP)",
-        "Country": "ESP"
-      },
-      {
-        "Rank": 5,
-        "Cyclist": "Javier (ESP)",
-        "Country": "ESP"
-      },
-      {
-        "Rank": 6,
-        "Cyclist": "Franco (ITA)",
-        "Country": "ITA"
-      },
-      {
-        "Rank": 7,
-        "Cyclist": "Juan (ESP)",
-        "Country": "ESP"
+        "Country": "ITA",
+        "Count": 2
       }
     ]
   }
