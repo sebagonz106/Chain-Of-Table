@@ -26,10 +26,19 @@ def create_generate_args_prompt(table: List[Dict], question: str, operation: str
     
     table_str = format_table_as_pipe(table)
     
+    # Extract current column names
+    if table:
+        current_columns = list(table[0].keys())
+        columns_str = ", ".join(current_columns)
+    else:
+        columns_str = "None"
+    
     prompt = f"""You are an expert in tabular reasoning. Your task is to generate appropriate arguments for a specific operation in Chain-of-Table.
 
 CURRENT TABLE:
 {table_str}
+
+CURRENT COLUMNS: {columns_str}
 
 QUESTION:
 {question}
@@ -67,7 +76,7 @@ Table: Rank | Cyclist | Country | Age
        1    | Alej.   | ESP     | 25
        2    | Davide  | ITA     | 28
 Question: Which country had the most cyclists?
-→ I only need columns relevant to the question
+→ I only need columns relevant to the question, which are Cyclist and Country
 ARGUMENTS: ["Cyclist", "Country"]
 
 EXAMPLE f_group_by:
@@ -90,17 +99,20 @@ Question: Which country had the most cyclists?
 ARGUMENTS: ["Count", false]
 
 INSTRUCTIONS:
-1. Analyze the current table and question.
-2. Consider what arguments the operation "{operation}" needs to advance toward the answer.
-3. For f_add_column, you MUST provide both the column name AND the actual values for each row in the table.
-4. Output format by operation:
+1. Look at the CURRENT COLUMNS to see what columns already exist in the table.
+2. For f_add_column: 
+    - Only create columns that DO NOT already exist in CURRENT COLUMNS.
+    - If it is requested for a column that already exists, this is an error - the operation should not be performed.
+    - You MUST provide both the column name AND the actual values for each row in the table.
+    - Extract/generate the exact value for each row in the current table.
+3. Output format by operation:
    - f_add_column: [column_name, [values_for_each_row]] (e.g., ["Country", ["ESP", "ITA", "FRA"]])
    - f_select_row: List of row numbers (e.g., [1, 2, 3])  
    - f_select_column: List of column names (e.g., ["Name", "Country"])
    - f_group_by: Just the column name (e.g., Country)
    - f_sort_by: [column_name, ascending] (e.g., ["Count", false])
-5. For f_add_column: Extract/generate the exact value for each row in the current table.
-6. IMPORTANT: Respond with ONLY the arguments for {operation}, no explanation, no examples for other operations.
+4. CRITICAL: The current table has {len(table)} rows. For f_add_column you must provide exactly {len(table)} values in your list, one for each row.
+5. IMPORTANT: Respond with ONLY the arguments for {operation}, NO explanations or examples for other operations.
 
 What are the appropriate arguments for {operation}?
 ARGUMENTS:"""
@@ -121,54 +133,60 @@ def parse_args_response(response: str, operation: str) -> Union[str, List, int]:
     """
     # Clean the response
     response = response.strip()
-    
-    # Look for the specific operation in the response
     lines = response.split('\n')
     args_str = ""
     
-    # Method 1: Look for "ARGUMENTS:" pattern
+    # Strategy 1: Look for "ARGUMENTS:" pattern (most reliable)
     for line in lines:
         if 'ARGUMENTS:' in line:
             args_str = line.split('ARGUMENTS:')[-1].strip()
-            break
-    
-    # Method 2: Look for the specific operation pattern (e.g., "- f_add_column: ...")
-    if not args_str:
-        operation_pattern = f"- {operation}:"
-        for line in lines:
-            if operation_pattern in line:
-                args_str = line.split(operation_pattern)[-1].strip()
+            if args_str:  # Only break if we actually found content after ARGUMENTS:
                 break
     
-    # Method 3: Look for just the operation name followed by colon
-    if not args_str:
-        operation_pattern = f"{operation}:"
-        for line in lines:
-            if operation_pattern in line:
-                args_str = line.split(operation_pattern)[-1].strip()
-                break
-    
-    # Method 4: If the response is just the arguments (single line)
+    # Strategy 2: If single line response, it's probably just the arguments
     if not args_str and len(lines) == 1:
         args_str = lines[0].strip()
     
-    # Method 5: Look for the last line that looks like arguments
+    # Strategy 3: Look for lines that look like arguments (start with [ or ")
+    if not args_str:
+        for line in lines:
+            line = line.strip()
+            if line and (line.startswith('[') or line.startswith('"')) and len(line) > 2:
+                args_str = line
+                break
+    
+    # Strategy 4: Take the last non-empty, meaningful line as fallback
     if not args_str:
         for line in reversed(lines):
             line = line.strip()
-            if line and (line.startswith('[') or line.startswith('"') or line.replace('"', '').replace("'", '').replace('[', '').replace(']', '').replace(',', '').replace(' ', '').isalnum()):
-                args_str = line
-                break
+            if line and len(line) > 1:
+                # Skip lines that are clearly not arguments
+                if not any(skip_word in line.lower() for skip_word in ['→', 'arguments', 'operation', 'table:']):
+                    args_str = line
+                    break
     
     if not args_str:
         raise ValueError(f"Could not extract arguments for {operation} from LLM response: {response}")
     
     # Parse according to operation type
+    return _parse_operation_args(args_str, operation)
+
+
+def _parse_operation_args(args_str: str, operation: str) -> Union[str, List, int]:
+    """
+    Parse the argument string based on the operation type.
+    
+    Args:
+        args_str: Raw argument string extracted from LLM response
+        operation: Operation type
+        
+    Returns:
+        Parsed arguments in appropriate format
+    """
     try:
         if operation == "f_add_column":
             # Expect [column_name, [values]] format
             import json
-            import re
             
             # Try to parse as JSON first
             try:
@@ -271,7 +289,7 @@ def parse_args_response(response: str, operation: str) -> Union[str, List, int]:
     
     except Exception as e:
         # If parsing error, raise exception with details
-        raise ValueError(f"Failed to parse arguments for {operation}. Response: {response}. Error: {e}")
+        raise ValueError(f"Failed to parse arguments for {operation}. Args string: {args_str}. Error: {e}")
 
 
 
@@ -293,10 +311,17 @@ def generate_args(table: List[Dict], question: str, operation: str,
     if not llm_function:
         raise ValueError("LLM function is required. No fallback methods available.")
     
+    # Check for f_add_column with existing columns
+    if operation == "f_add_column" and table:
+        current_columns = list(table[0].keys())
+        # We'll validate after getting the response from LLM
+    
     # Always use LLM - no simplified version
     prompt = create_generate_args_prompt(table, question, operation)
     response = llm_function(prompt)
-    return parse_args_response(response, operation)
+    args = parse_args_response(response, operation)
+    
+    return args
 
 
 # Function for compatibility with existing code
