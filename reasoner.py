@@ -80,6 +80,7 @@ class ChainOfTableReasoner:
                 # Check if finished and avoiding infinite loops
                 if operation == "[E]" or operation in excluded_ops:
                     operation = "[E]"
+                    args = None
                     if self.verbose:
                         print("✅ End of operation chain")
                     break
