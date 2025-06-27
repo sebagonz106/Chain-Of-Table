@@ -70,7 +70,7 @@ OPERATION HISTORY:
 CANDIDATE OPERATIONS:
 {candidates_str}{exclusion_warning}
 
-🚨 STRICT REQUIREMENT: 
+STRICT REQUIREMENT: 
     - You MUST ONLY choose from the CANDIDATE OPERATIONS listed above
     - Do NOT suggest any operation that is not in the CANDIDATE OPERATIONS list
     - If f_add_column is not available, you cannot add new columns
@@ -81,7 +81,10 @@ IMPORTANT:
     - If a column is already listed in CURRENT COLUMNS, do NOT use f_add_column for it again
     - YOU CAN ONLY USE OPERATIONS FROM CANDIDATE OPERATIONS
 
-CRITICAL RULE: Before using f_group_by, f_sort_by, or f_select_column with a column name, CHECK if that column exists in CURRENT COLUMNS. If it doesn't exist, you MUST use f_add_column first to create it!
+CRITICAL RULE: 
+    - Before using f_group_by, f_sort_by, or f_select_column with a column name, CHECK if that column exists in CURRENT COLUMNS
+    - If it doesn't exist AND f_add_column is available in CANDIDATE OPERATIONS, use f_add_column first
+    - If it doesn't exist AND f_add_column is NOT available, you cannot perform that operation - choose [E] or a different approach
 
 REASONING EXAMPLES (whith max amount of steps being 5):
 
@@ -161,17 +164,24 @@ OPERATIONS: f_group_by, [E]
 
 INSTRUCTIONS:
 1. Look at the CURRENT COLUMNS to see what data is already available.
-2. Check the OPERATION HISTORY to see what has already been done.
-3. If you need a column that doesn't exist in CURRENT COLUMNS, use f_add_column to create it.
-4. CRITICAL: If a column already exists in CURRENT COLUMNS, do NOT use f_add_column for that same column again.
-5. NEVER suggest f_add_column if the column name already appears in CURRENT COLUMNS.
-6. Select the most appropriate operations from CANDIDATE OPERATIONS to advance toward the answer.
+2. Look at the OPERATION HISTORY to see what operations have ALREADY been performed.
+3. YOU MUST ONLY SELECT FROM CANDIDATE OPERATIONS - Do not suggest excluded operations!
+4. CRITICAL: DO NOT repeat operations that are already in the OPERATION HISTORY!
+5. CONTINUE FROM WHERE THE CHAIN LEFT OFF - Don't restart from the beginning!
+6. If a column already exists in CURRENT COLUMNS, do NOT use f_add_column for that same column again.
 7. If you can already answer the question with the current table, select [E].
-8. Respond ONLY with the operations name separated by comma, DO NOT INCLUDE the arguments in your response.
-9. You MUST NOT INCLUDE previous operations in your response, only the operations needed from now on to arrive to an answer.
-10. You have ONLY {max_steps-current_steps} operations remaining. If there are no operations remaining, you must return [E].
+8. Generate the COMPLETE remaining path to the solution, but starting from the CURRENT STATE.
+9. You have ONLY {max_steps-current_steps} operations remaining. If there are no operations remaining, return [E].
 
-What are the next most appropriate operations?
+MAIN GOAL: Generate the complete sequence of operations needed FROM NOW ON to reach the answer, without repeating what's already done!
+
+REMINDER: 
+- Look at OPERATION HISTORY - these operations are ALREADY DONE, don't repeat them!
+- Look at CURRENT TABLE - this is where you are NOW
+- Generate the remaining path from THIS point forward
+- Respond ONLY with operation names separated by comma, NO arguments
+
+What are the next operations needed to complete the solution?
 OPERATIONS:"""
 
     return prompt

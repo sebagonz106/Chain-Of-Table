@@ -121,7 +121,7 @@ class ChainOfTableReasoner:
                 if not get_op and current_table and len(current_table) > 0:
                     columns = list(current_table[0].keys())
                     # If we have Count column or question is about "most", we might have the answer
-                    if "Count" in columns and ("most" in question.lower() or "highest" in question.lower()):
+                    if "Count" in columns and ("most" in question.lower() or "highest" in question.lower() or "lowest" in question.lower() or "least" in question.lower()) and operation != "f_sort_by":
                         # Check if the table is in a format that can answer the question
                         count_values = [row.get("Count", 0) for row in current_table if "Count" in row]
                         if count_values and len(set(count_values)) > 1:  # Different counts exist
