@@ -68,7 +68,23 @@ OPERATION HISTORY:
 {chain_str}
 
 CANDIDATE OPERATIONS:
-{candidates_str}{exclusion_warning}
+{candidates_str}
+
+EXCLUDED OPERATIONS (These operations are NOT AVAILABLE due to conflicts or previous usage. DO NOT suggest them!): 
+{'\n- '.join(excluded_ops)}
+
+COLUMN CREATION PRIORITY RULE (MOST IMPORTANT):
+    - ALWAYS check CURRENT COLUMNS before suggesting ANY operation!
+    - If you need a column that is NOT in CURRENT COLUMNS, you MUST use f_add_column FIRST!
+    - DO NOT attempt f_group_by, f_sort_by, or f_select_column with non-existent columns!
+    - Example: To group by 'Country' but 'Country' is not in CURRENT COLUMNS → FIRST use f_add_column to create 'Country'
+
+ANSWER DETECTION RULE (CRITICAL):
+    - If the current table already contains the answer to the question, choose [E] immediately!
+    - After f_group_by with a Count column, check if you can answer the question directly
+    - For "most/highest" questions: if you have counts by category, the highest count gives the answer
+    - For "least/lowest" questions: if you have counts by category, the lowest count gives the answer
+    - Example: Question "Which country has the most?" + Table with Country|Count → Answer is ready, choose [E]
 
 STRICT REQUIREMENT: 
     - You MUST ONLY choose from the CANDIDATE OPERATIONS listed above
@@ -126,13 +142,13 @@ History: [B], f_add_column(['Country', ['ESP', 'ITA', 'ITA', 'ESP']]), f_select_
 → THEN: Answer.
 OPERATIONS: f_group_by, [E]
 
-Example 4:
+Example 4 (ANSWER READY - STOP HERE):
 Table: Country | Count
        ITA     | 2
        ESP     | 1
 Question: Which country had the most cyclists in the top 3?
 History: [B], f_add_column(['Country', ['ESP', 'ITA', 'ITA', 'ESP']]), f_select_row([1,2,3]), f_group_by(['Country'])
-→ Analysis: Perfect! The table now shows the count of cyclists per country in the top 3. ITA has 2 cyclists and ESP has 1. I can directly answer the question: Italy (ITA) had the most cyclists in the top 3.
+→ Analysis: PERFECT! The table now shows the count of cyclists per country in the top 3. ITA has 2 cyclists and ESP has 1. I can directly answer the question: Italy (ITA) had the most cyclists in the top 3. NO MORE OPERATIONS NEEDED.
 OPERATIONS: [E]
 
 Example 5:

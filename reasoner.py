@@ -8,7 +8,7 @@ from typing import List, Dict, Any, Union
 from prompts.dynamic_plan import dynamic_plan
 from prompts.generate_args import get_operation_args
 from prompts.query import get_final_answer
-from utils.table_ops import apply_operation, format_table_as_pipe, validate_table
+from utils.table_ops import apply_operation, format_table_as_pipe, validate_table, get_available_operations
 
 
 class ChainOfTableReasoner:
@@ -128,17 +128,32 @@ class ChainOfTableReasoner:
                                 retry_reason = f"Operation {operation}({args}) was already performed"
                                 break
                             
-                # Check if we can already answer the question (for counting questions)
+                # Check if we can already answer the question
                 if not get_op and current_table and len(current_table) > 0:
                     columns = list(current_table[0].keys())
-                    # If we have Count column or question is about "most", we might have the answer
-                    if "Count" in columns and ("most" in question.lower() or "highest" in question.lower() or "lowest" in question.lower() or "least" in question.lower()) and (operation != "f_sort_by" or len([step for step in chain if "f_sort_by" in step])>0):
-                        # Check if the table is in a format that can answer the question
-                        count_values = [row.get("Count", 0) for row in current_table if "Count" in row]
-                        if count_values and len(set(count_values)) > 1:  # Different counts exist
-                            get_op = True
-                            excluded_ops.append(operation)
-                            retry_reason = "Answer is already available in the current table"
+
+                    can_answer = False
+                    answer_reason = ""
+                    
+                    # Check if we have a Count column after grouping - this is the most reliable indicator
+                    if "Count" in columns:
+                        # For questions asking "most", "highest", "lowest", "least"
+                        comparison_keywords = ["most", "highest", "lowest", "least", "maximum", "minimum", "max", "min"]
+                        
+                        if any(keyword in question.lower() for keyword in comparison_keywords):
+                            count_values = [row.get("Count", 0) for row in current_table if "Count" in row]
+                            if count_values and len(set(count_values)) > 1:  # Different counts exist
+                                can_answer = True
+                                answer_reason = "Table has Count column with different values, can determine most/least"
+                            elif len(count_values) >= 2:  # Multiple entries with counts
+                                can_answer = True
+                                answer_reason = "Table has Count column with multiple categories, can determine comparison"
+                    
+                    # If we can answer and we're not doing a necessary sort operation
+                    if can_answer and not (operation == "f_sort_by" and "f_sort_by" not in [op[0] for op in chain if isinstance(op, tuple) and op[0] == "f_sort_by"]):
+                        get_op = True
+                        excluded_ops.append(get_available_operations())
+                        retry_reason = f"Answer is already available: {answer_reason}"
                 
                 # Perform retry if needed
                 if get_op and self.verbose:
