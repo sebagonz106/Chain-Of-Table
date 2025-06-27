@@ -35,10 +35,12 @@ def create_dynamic_plan_prompt(table: List[Dict], question: str, chain: List[Uni
     print("-> Remaining operations: " + str(max_steps - current_steps))
     
     # Get candidate operations
-
     candidates = get_available_operations()
-    candidates_str = ", ".join([x for x in candidates if x not in excluded_ops])
-    print(candidates_str)
+    available_candidates = [x for x in candidates if x not in excluded_ops]
+    candidates_str = ", ".join(available_candidates)
+    print("Available candidates:", candidates_str)
+    if excluded_ops:
+        print("Excluded operations:", excluded_ops)
     
     # Extract current column names
     if table:
@@ -46,6 +48,11 @@ def create_dynamic_plan_prompt(table: List[Dict], question: str, chain: List[Uni
         columns_str = ", ".join(current_columns)
     else:
         columns_str = "None"
+    
+    # Create exclusion warning
+    exclusion_warning = ""
+    if excluded_ops:
+        exclusion_warning = f"\n🚨 EXCLUDED OPERATIONS: {', '.join(excluded_ops)} - These operations are NOT AVAILABLE due to conflicts or previous usage. DO NOT suggest them!"
     
     prompt = f"""You are an expert in tabular reasoning. Your task is to select the next atomic operations needed to solve a question about a table. In total, only {max_steps} operations can be used. 
 
@@ -61,11 +68,18 @@ OPERATION HISTORY:
 {chain_str}
 
 CANDIDATE OPERATIONS:
-{candidates_str}
+{candidates_str}{exclusion_warning}
+
+🚨 STRICT REQUIREMENT: 
+    - You MUST ONLY choose from the CANDIDATE OPERATIONS listed above
+    - Do NOT suggest any operation that is not in the CANDIDATE OPERATIONS list
+    - If f_add_column is not available, you cannot add new columns
+    - If an operation you need is excluded, choose [E] to end or select a different approach
 
 IMPORTANT: 
-    - The CURRENT COLUMNS above show what columns exist RIGHT NOW in the table. If a column is already listed in CURRENT COLUMNS, do NOT use f_add_column for it again!
-    - Only used the operations given in CANDIDATE OPERATIONS
+    - The CURRENT COLUMNS above show what columns exist RIGHT NOW in the table
+    - If a column is already listed in CURRENT COLUMNS, do NOT use f_add_column for it again
+    - YOU CAN ONLY USE OPERATIONS FROM CANDIDATE OPERATIONS
 
 CRITICAL RULE: Before using f_group_by, f_sort_by, or f_select_column with a column name, CHECK if that column exists in CURRENT COLUMNS. If it doesn't exist, you MUST use f_add_column first to create it!
 

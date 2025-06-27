@@ -62,9 +62,9 @@ class ChainOfTableReasoner:
             print(format_table_as_pipe(current_table))
             print()
         
+        end = False
         # Main loop
         for step in range(self.max_steps):
-            
             get_op = True
             excluded_ops = []
             while (get_op):
@@ -80,7 +80,7 @@ class ChainOfTableReasoner:
                 # Check if finished and avoiding infinite loops
                 if operation == "[E]" or operation in excluded_ops:
                     operation = "[E]"
-                    args = None
+                    end = True
                     if self.verbose:
                         print("✅ End of operation chain")
                     break
@@ -133,6 +133,8 @@ class ChainOfTableReasoner:
                 if get_op and self.verbose:
                     print(f"⚠️  Conflict detected: {retry_reason}")
                     print("🔄 Retrying with different operation...\n")
+
+            if(end): break
 
             # 4. Apply operation
             try:
